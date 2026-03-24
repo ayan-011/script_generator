@@ -57,7 +57,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border">
+      <header className="border-b border-border  bg-mirror backdrop-blur-xl fixed w-full">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
@@ -75,7 +75,7 @@ export default function Home() {
       {/* Hero */}
       <section className="py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-accent text-sm font-medium tracking-wide uppercase mb-4">
+          <p className="text-accent text-sm font-medium tracking-wide uppercase mb-4 mt-2">
             AI-Powered Script Writer
           </p>
           <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 text-balance">
