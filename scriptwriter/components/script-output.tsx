@@ -2,7 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Copy, Check, RefreshCw } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Copy, Check, RefreshCw, Loader2 } from "lucide-react"
 import { useState } from "react"
 
 interface ScriptOutputProps {
@@ -11,13 +18,76 @@ interface ScriptOutputProps {
   onRegenerate?: () => void
 }
 
+const LANGUAGES = [
+  { value: "hinglish", label: "Hinglish" },
+  { value: "english", label: "English" },
+  { value: "hindi", label: "Hindi" },
+  { value: "japanese", label: "Japanese" },
+  { value: "spanish", label: "Spanish" },
+  { value: "korean", label: "Korean" },
+  { value: "french", label: "French" },
+  { value: "german", label: "German" },
+  { value: "portuguese", label: "Portuguese" },
+]
+
 export function ScriptOutput({ script, isStreaming, onRegenerate }: ScriptOutputProps) {
   const [copied, setCopied] = useState(false)
+  const [selectedLanguage, setSelectedLanguage] = useState("hinglish")
+  const [translatedScript, setTranslatedScript] = useState("")
+  const [isTranslating, setIsTranslating] = useState(false)
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(script)
+    const textToCopy = selectedLanguage === "hinglish" ? script : translatedScript
+    await navigator.clipboard.writeText(textToCopy)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleLanguageChange = async (language: string) => {
+    setSelectedLanguage(language)
+    
+    if (language === "hinglish" || !script) {
+      setTranslatedScript("")
+      return
+    }
+
+    setIsTranslating(true)
+    try {
+      const response = await fetch("/api/translate-script", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          script,
+          targetLanguage: language,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("[v0] Translation error:", errorText)
+        throw new Error("Failed to translate script")
+      }
+
+      if (!response.body) throw new Error("No response body")
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let translatedText = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        translatedText += chunk
+      }
+
+      setTranslatedScript(translatedText)
+    } catch (error) {
+      console.error("[v0] Error translating script:", error)
+      setTranslatedScript("Error translating script. Please try again.")
+    } finally {
+      setIsTranslating(false)
+    }
   }
 
   if (!script && !isStreaming) {
@@ -38,17 +108,40 @@ export function ScriptOutput({ script, isStreaming, onRegenerate }: ScriptOutput
 
   return (
     <Card className="bg-card border-border p-6 min-h-[400px] flex flex-col">
-      <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
-        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <span className="text-accent">Generated Script</span>
-          {isStreaming && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-normal">
-              <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-              Generating...
-            </span>
-          )}
-        </h3>
-        <div className="flex gap-2">
+      <div className="mb-4 pb-4 border-b border-border">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <span className="text-accent">Generated Script</span>
+            {isStreaming && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-normal">
+                <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                Generating...
+              </span>
+            )}
+          </h3>
+        </div>
+
+        {script && !isStreaming && (
+          <div className="mb-4">
+            <label className="text-xs font-medium text-muted-foreground block mb-2">
+              Language
+            </label>
+            <Select value={selectedLanguage} onValueChange={handleLanguageChange} disabled={isTranslating}>
+              <SelectTrigger className="bg-secondary border-border text-foreground w-full sm:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((lang) => (
+                  <SelectItem key={lang.value} value={lang.value}>
+                    {lang.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <div className="flex gap-2 flex-wrap">
           {onRegenerate && !isStreaming && (
             <Button
               variant="outline"
@@ -64,7 +157,7 @@ export function ScriptOutput({ script, isStreaming, onRegenerate }: ScriptOutput
             variant="outline"
             size="sm"
             onClick={handleCopy}
-            disabled={!script}
+            disabled={!script || isTranslating}
             className="text-muted-foreground hover:text-foreground"
           >
             {copied ? (
@@ -85,8 +178,19 @@ export function ScriptOutput({ script, isStreaming, onRegenerate }: ScriptOutput
       <div className="flex-1 overflow-auto">
         <div className="prose prose-invert prose-sm max-w-none">
           <pre className="whitespace-pre-wrap font-sans text-foreground bg-transparent p-0 text-sm leading-relaxed">
-            {script}
-            {isStreaming && <span className="inline-block w-2 h-5 bg-accent animate-pulse ml-1" />}
+            {isTranslating ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Translating to {LANGUAGES.find(l => l.value === selectedLanguage)?.label}...
+              </div>
+            ) : selectedLanguage === "hinglish" ? (
+              <>
+                {script}
+                {isStreaming && <span className="inline-block w-2 h-5 bg-accent animate-pulse ml-1" />}
+              </>
+            ) : (
+              translatedScript
+            )}
           </pre>
         </div>
       </div>
