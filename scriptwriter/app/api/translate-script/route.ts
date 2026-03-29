@@ -71,8 +71,9 @@ const getTranslationPrompt = (targetLanguage: string) => {
 }
 
 export async function POST(req: Request) {
-  console.log("[v0] Translation API called")
+  console.log("[v0] Translation API called - v2")
   console.log("[v0] GROQ_API_KEY exists:", !!process.env.GROQ_API_KEY)
+  console.log("[v0] Environment check - timestamp:", new Date().toISOString())
 
   if (!process.env.GROQ_API_KEY) {
     return new Response(
